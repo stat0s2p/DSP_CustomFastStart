@@ -6,6 +6,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Force deterministic, non-garbled CLI output in mixed codepage terminals.
+$env:DOTNET_CLI_UI_LANGUAGE = "en-US"
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectFile = Join-Path $root "DSP_CustomFastStart\DSP_CustomFastStart.csproj"
 $thunderstoreDir = Join-Path $root "thunderstore"
@@ -25,7 +28,7 @@ if ([string]::IsNullOrWhiteSpace($packageName)) { throw "manifest.name is empty.
 if ([string]::IsNullOrWhiteSpace($version)) { throw "manifest.version_number is empty." }
 
 Write-Host "Building plugin ($Configuration)..."
-dotnet build $projectFile -c $Configuration | Out-Host
+dotnet build $projectFile -c $Configuration -nologo | Out-Host
 
 $dllPath = Join-Path $root "DSP_CustomFastStart\bin\$Configuration\net472\DSP_CustomFastStart.dll"
 if (-not (Test-Path $dllPath)) { throw "Build output missing: $dllPath" }
