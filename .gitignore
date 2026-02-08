@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+thunderstore/build/
+thunderstore/dist/
+local/inspect_assemblerui/
+local/
