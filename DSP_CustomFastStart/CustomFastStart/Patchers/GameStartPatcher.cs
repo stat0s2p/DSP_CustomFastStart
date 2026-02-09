@@ -4,45 +4,63 @@ using System.Collections.Generic;
 
 namespace DSP_CustomFastStart.CustomFastStart.Patchers
 {
-    internal static class GameStartPatcher
+    public static class GameStartPatcher
     {
         private static bool _appliedForCurrentGame;
         private static bool _loadedFromSave;
+        private static bool _startupStateLogged;
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameSave), "LoadCurrentGame")]
-        private static void LoadCurrentGamePrefix()
+        public static void LoadCurrentGamePrefix()
         {
             _loadedFromSave = true;
+            CustomFastStartPlugin.Log.LogInfo("FastStart mark: session entered via LoadCurrentGame.");
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(UIGalaxySelect), "_OnOpen")]
-        private static void GalaxySelectOnOpenPostfix()
+        public static void GalaxySelectOnOpenPostfix()
         {
             // Entering galaxy select indicates starting a new run flow, not loading a save.
             _loadedFromSave = false;
+            CustomFastStartPlugin.Log.LogInfo("FastStart mark: galaxy select opened (new game flow).");
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(UIRoot), "OnGameBegin")]
-        private static void OnGameBeginPostfix()
+        public static void OnGameBeginPostfix()
         {
             _appliedForCurrentGame = false;
+            _startupStateLogged = false;
+            CustomFastStartPlugin.Log.LogInfo("FastStart reset: OnGameBegin.");
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(GameLogic), "LogicFrame")]
-        private static void OnLogicFramePostfix()
+        public static void OnLogicFramePostfix()
         {
             if (_appliedForCurrentGame || !CustomFastStartPlugin.EnableFastStart.Value)
             {
                 return;
             }
 
-            if (GameMain.instance == null || GameMain.data == null || GameMain.instance.timei != 2)
+            if (GameMain.instance == null || GameMain.data == null)
             {
                 return;
+            }
+
+            // timei == 2 can be missed depending on load order and frame timing.
+            // Execute on the first frame after startup when core objects are ready.
+            if (GameMain.instance.timei < 2 || GameMain.data.mainPlayer == null)
+            {
+                return;
+            }
+
+            if (!_startupStateLogged)
+            {
+                _startupStateLogged = true;
+                CustomFastStartPlugin.Log.LogInfo($"FastStart check: timei={GameMain.instance.timei}, loadedFromSave={_loadedFromSave}.");
             }
 
             if (_loadedFromSave)
@@ -52,8 +70,16 @@ namespace DSP_CustomFastStart.CustomFastStart.Patchers
                 return;
             }
 
-            _appliedForCurrentGame = true;
-            ApplyFastStart();
+            try
+            {
+                _appliedForCurrentGame = true;
+                ApplyFastStart();
+            }
+            catch (Exception ex)
+            {
+                _appliedForCurrentGame = true;
+                CustomFastStartPlugin.Log.LogError($"Fast start apply failed: {ex}");
+            }
         }
 
         private static void ApplyFastStart()
@@ -70,6 +96,8 @@ namespace DSP_CustomFastStart.CustomFastStart.Patchers
                 CustomFastStartPlugin.Log.LogInfo("Fast start skipped: both tech and item configs are empty.");
                 return;
             }
+
+            CustomFastStartPlugin.Log.LogInfo($"Fast start apply begin. isCombat={isCombat}, hasTechConfig={hasTechConfig}, hasItemConfig={hasItemConfig}.");
 
             if (hasTechConfig)
             {

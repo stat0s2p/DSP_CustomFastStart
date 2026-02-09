@@ -19,7 +19,7 @@ namespace DSP_CustomFastStart.CustomFastStart
 
         private Harmony? _harmony;
 
-        private void Awake()
+        internal void Awake()
         {
             EnableFastStart = Config.Bind("General", "EnableFastStart", true, "Whether custom fast start is enabled.");
             ClearPackageBeforeGrantItems = Config.Bind("General", "ClearPackageBeforeGrantItems", true, "Whether to clear player package before adding configured items.");
@@ -33,7 +33,7 @@ namespace DSP_CustomFastStart.CustomFastStart
             Log.LogInfo("Custom fast start initialized.");
         }
 
-        private void OnDestroy()
+        internal void OnDestroy()
         {
             _harmony?.UnpatchSelf();
         }

@@ -1,4 +1,4 @@
-﻿# DSP Custom Fast Start
+# DSP Custom Fast Start
 
 `DSP_CustomFastStart` is a Dyson Sphere Program plugin that applies your configured fast-start rewards exactly once when a **new game** starts.
 
