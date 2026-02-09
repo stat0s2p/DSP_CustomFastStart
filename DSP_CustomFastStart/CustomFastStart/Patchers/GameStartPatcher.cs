@@ -6,25 +6,58 @@ namespace DSP_CustomFastStart.CustomFastStart.Patchers
 {
     public static class GameStartPatcher
     {
+        private enum FastStartContext
+        {
+            Unknown = 0,
+            NewGameRequested = 1,
+            LoadedSave = 2
+        }
+
         private static bool _appliedForCurrentGame;
-        private static bool _loadedFromSave;
+        private static bool _galaxySelectOpened;
         private static bool _startupStateLogged;
+        private static bool _pendingNewGameFlow;
+        private static FastStartContext _context = FastStartContext.Unknown;
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(GameSave), "LoadCurrentGame")]
         public static void LoadCurrentGamePrefix()
         {
-            _loadedFromSave = true;
-            CustomFastStartPlugin.Log.LogInfo("FastStart mark: session entered via LoadCurrentGame.");
+            // DSP can call LoadCurrentGame for both true save loads and newly-created games.
+            // If we just left galaxy select for a new run, keep NewGameRequested context.
+            if (_pendingNewGameFlow)
+            {
+                CustomFastStartPlugin.Log.LogInfo("FastStart mark: LoadCurrentGame observed during pending new-game flow; keeping NewGameRequested context.");
+                return;
+            }
+
+            _context = FastStartContext.LoadedSave;
+            CustomFastStartPlugin.Log.LogInfo("FastStart mark: session entered via LoadCurrentGame (treated as save load).");
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(UIGalaxySelect), "_OnOpen")]
         public static void GalaxySelectOnOpenPostfix()
         {
-            // Entering galaxy select indicates starting a new run flow, not loading a save.
-            _loadedFromSave = false;
+            _galaxySelectOpened = true;
+            _pendingNewGameFlow = false;
+            _context = FastStartContext.Unknown;
             CustomFastStartPlugin.Log.LogInfo("FastStart mark: galaxy select opened (new game flow).");
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(UIGalaxySelect), "_OnClose")]
+        public static void GalaxySelectOnClosePostfix()
+        {
+            if (_galaxySelectOpened)
+            {
+                // Closing galaxy select in the start flow is a reliable indicator that
+                // we are moving forward to create a new game (mirrors DSP_Battle's timing intent).
+                _context = FastStartContext.NewGameRequested;
+                _pendingNewGameFlow = true;
+                _galaxySelectOpened = false;
+                CustomFastStartPlugin.Log.LogInfo("FastStart mark: galaxy select closed, new game requested.");
+            }
         }
 
         [HarmonyPostfix]
@@ -60,24 +93,27 @@ namespace DSP_CustomFastStart.CustomFastStart.Patchers
             if (!_startupStateLogged)
             {
                 _startupStateLogged = true;
-                CustomFastStartPlugin.Log.LogInfo($"FastStart check: timei={GameMain.instance.timei}, loadedFromSave={_loadedFromSave}.");
+                CustomFastStartPlugin.Log.LogInfo($"FastStart check: timei={GameMain.instance.timei}, context={_context}.");
             }
 
-            if (_loadedFromSave)
+            if (_context != FastStartContext.NewGameRequested)
             {
                 _appliedForCurrentGame = true;
-                CustomFastStartPlugin.Log.LogInfo("Fast start skipped because current session is loaded from save.");
+                _pendingNewGameFlow = false;
+                CustomFastStartPlugin.Log.LogInfo($"Fast start skipped because context is {_context}, not NewGameRequested.");
                 return;
             }
 
             try
             {
                 _appliedForCurrentGame = true;
+                _pendingNewGameFlow = false;
                 ApplyFastStart();
             }
             catch (Exception ex)
             {
                 _appliedForCurrentGame = true;
+                _pendingNewGameFlow = false;
                 CustomFastStartPlugin.Log.LogError($"Fast start apply failed: {ex}");
             }
         }

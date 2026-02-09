@@ -1,6 +1,6 @@
 {
   "name": "DSP_CustomFastStart",
-  "version_number": "0.1.1",
+  "version_number": "0.1.2",
   "website_url": "https://github.com/stat0s2p/DSP_CustomFastStart",
   "description": "Applies a custom fast start once when starting a new game: unlock configured techs and grant configured items.",
   "dependencies": [

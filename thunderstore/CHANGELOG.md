@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Fixed new-game detection when DSP internally calls `LoadCurrentGame` during new save creation.
+- Added guarded context handling so pending new-game flow is not overwritten by load callbacks.
+- Confirmed fast-start items now apply on actual new game starts.
+
 ## 0.1.1
 
 - Fixed fast-start trigger reliability on new games by avoiding a single-frame timing dependency.
